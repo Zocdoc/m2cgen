@@ -145,24 +145,32 @@ class LightGBMModelAssembler(BaseBoostingAssembler):
         if "leaf_value" in tree:
             return ast.NumVal(tree["leaf_value"])
 
-        threshold = ast.NumVal(tree["threshold"])
         feature_ref = ast.FeatureRef(tree["split_feature"])
-
         op = ast.CompOpType.from_str_op(tree["decision_type"])
-        assert op == ast.CompOpType.LTE, "Unexpected comparison op"
+
+        is_categorical = op == ast.CompOpType.EQ
 
         # Make sure that if the 'default_left' is true the left tree branch
         # ends up in the "else" branch of the ast.IfExpr.
         if tree['default_left']:
-            op = ast.CompOpType.GT
+            if not is_categorical:
+                op = ast.CompOpType.GT
             true_child = tree["right_child"]
             false_child = tree["left_child"]
         else:
             true_child = tree["left_child"]
             false_child = tree["right_child"]
 
+        if op == ast.CompOpType.LTE or op == ast.CompOpType.GT:
+            threshold = ast.NumVal(tree["threshold"])
+            expr = ast.CompExpr(feature_ref, threshold, op)
+        elif is_categorical:
+            expr = _create_categorical_expr(tree, feature_ref)
+        else:
+            raise Exception("Unexpected comparison op: {}. Expected LTE or EQ".format(op))
+
         return ast.IfExpr(
-            ast.CompExpr(feature_ref, threshold, op),
+            expr,
             self._assemble_tree(true_child),
             self._assemble_tree(false_child))
 
@@ -175,3 +183,16 @@ def _split_trees_by_classes(trees, n_classes):
         class_idx = i % n_classes
         trees_by_classes[class_idx].append(trees[i])
     return trees_by_classes
+
+
+def _create_categorical_expr(tree, feature_ref):
+    # LightGBM threshold here is a double pipe deliminated string
+    categories = [x for x in tree["threshold"].split('||')]
+    expr = None
+    for c in categories:
+        eq_cat = ast.CompExpr(feature_ref, ast.NumVal(c), ast.CompOpType.EQ)
+        if expr is None:
+            expr = eq_cat
+        else:
+            expr = ast.CompExpr(expr, eq_cat, ast.CompOpType.OR)
+    return expr

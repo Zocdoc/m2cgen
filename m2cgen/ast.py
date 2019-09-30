@@ -165,6 +165,8 @@ class CompOpType(Enum):
     LTE = '<='
     EQ = '=='
     NOT_EQ = '!='
+    AND = '&&'
+    OR = '||'
 
     @staticmethod
     def from_str_op(op):
