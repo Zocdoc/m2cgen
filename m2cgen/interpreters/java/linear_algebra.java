@@ -19,17 +19,15 @@ public static double[] mulVectorNumber(double[] v1, double num) {
 }
 
 
-public static boolean contains(int[] v1, double featureRef) {
-    return Arrays.binarySearch(v1, (int)featureRef) >= 0;
+public static boolean contains(HashSet<Integer> v1, double featureRef) {
+    return v1.contains((int) featureRef);
 }
 
-public static int[] parseIntArray(String input) {
+public static HashSet<Integer> parseIntArray(String input) {
     String[] strings = input.split(",");
-    int[] numbers = new int[strings.length];
-    for (int i = 0; i < numbers.length; i++)
-    {
-        numbers[i] = Integer.parseInt(strings[i]);
+    HashSet<Integer> numbers = new HashSet<Integer>(strings.length);
+    for (int i = 0; i < strings.length; i++) {
+        numbers.add(Integer.parseInt(strings[i]));
     }
-    Arrays.sort(numbers);
     return numbers;
 }

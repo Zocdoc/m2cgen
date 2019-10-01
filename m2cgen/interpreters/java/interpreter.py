@@ -42,6 +42,7 @@ class JavaInterpreter(ToCodeInterpreter,
             top_cg.add_package_name(self.package_name)
 
         top_cg.prepend_code_lines("import java.util.Arrays;")
+        top_cg.prepend_code_lines("import java.util.HashSet;")
 
         with top_cg.class_definition(self.class_name):
 
@@ -51,7 +52,7 @@ class JavaInterpreter(ToCodeInterpreter,
             self.enqueue_subroutine("score", expr)
             self.process_subroutine_queue(top_cg)
 
-            top_cg.add_code_line("static int[] {};".format(','.join([name for name, _ in self.static_declarations])))
+            top_cg.add_code_line("static HashSet<Integer> {};".format(','.join([name for name, _ in self.static_declarations])))
 
             top_cg.add_code_line("static {")
             top_cg.increase_indent()
