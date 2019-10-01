@@ -225,3 +225,14 @@ class SubroutineExpr(TransparentExpr):
     def __str__(self):
         args = ",".join([str(self.expr), "to_reuse=" + str(self.to_reuse)])
         return "SubroutineExpr(" + args + ")"
+
+
+class ContainsIntExpr(CtrlExpr):
+    def __init__(self, collection, item, to_reuse=False):
+        self.to_reuse = to_reuse
+        self.item = item
+        self.collection = collection
+
+    def __str__(self):
+        args = ",".join([str(self.item), str(self.collection), "to_reuse=" + str(self.to_reuse)])
+        return "ContainsIntExpr(" + args + ")"

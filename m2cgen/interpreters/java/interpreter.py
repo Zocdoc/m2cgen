@@ -22,6 +22,7 @@ class JavaInterpreter(ToCodeInterpreter,
     exponent_function_name = "Math.exp"
     power_function_name = "Math.pow"
     tanh_function_name = "Math.tanh"
+    set_contains_function_name = "contains"
 
     def __init__(self, package_name=None, class_name="Model", indent=4,
                  *args, **kwargs):
@@ -40,6 +41,8 @@ class JavaInterpreter(ToCodeInterpreter,
         if self.package_name:
             top_cg.add_package_name(self.package_name)
 
+        top_cg.prepend_code_lines("import java.util.Arrays;")
+
         with top_cg.class_definition(self.class_name):
 
             # Since we use SubroutinesAsFunctionsMixin, we already have logic
@@ -47,6 +50,14 @@ class JavaInterpreter(ToCodeInterpreter,
             # expression and call `process_subroutine_queue` method.
             self.enqueue_subroutine("score", expr)
             self.process_subroutine_queue(top_cg)
+
+            top_cg.add_code_line("static int[] {};".format(','.join([name for name, _ in self.static_declarations])))
+
+            top_cg.add_code_line("static {")
+            top_cg.increase_indent()
+            top_cg.add_code_lines([line for _, line in self.static_declarations])
+            top_cg.add_block_termination()
+            
 
             if self.with_linear_algebra:
                 filename = os.path.join(

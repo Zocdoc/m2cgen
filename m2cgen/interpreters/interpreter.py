@@ -9,6 +9,7 @@ class BaseInterpreter:
     which takes instance of AST expression and recursively applies method
     _do_interpret() to it.
     """
+
     def __init__(self):
         self._cached_expr_results = {}
 
@@ -99,11 +100,13 @@ class ToCodeInterpreter(BaseToCodeInterpreter):
     exponent_function_name = NotImplemented
     power_function_name = NotImplemented
     tanh_function_name = NotImplemented
+    set_contains_function_name = NotImplemented
 
     def __init__(self, cg, feature_array_name="input"):
         super().__init__(cg, feature_array_name=feature_array_name)
         self.with_vectors = False
         self.with_math_module = False
+        self.static_declarations = []
 
     def interpret_if_expr(self, expr, if_var_name=None, **kwargs):
         if if_var_name is not None:
@@ -173,6 +176,17 @@ class ToCodeInterpreter(BaseToCodeInterpreter):
         exp_result = self._do_interpret(expr.exp_expr, **kwargs)
         return self._cg.function_invocation(
             self.power_function_name, base_result, exp_result)
+
+    def interpret_contains_int_expr(self, expr, **kwargs):
+        self.with_linear_algebra = True
+        var_name = 'var_{}'.format((len(self.static_declarations) + 1))
+        item_set = '{} = parseIntArray("'.format(var_name) + ','.join([str(c) for c in expr.collection]) + '");'
+        self.static_declarations.append((var_name, item_set))
+
+        item_result = self._do_interpret(expr.item, **kwargs)
+
+        return self._cg.function_invocation(
+            self.set_contains_function_name, var_name, item_result)
 
     def _cache_reused_expr(self, expr, expr_result):
         var_name = self._cg.add_var_declaration(expr.output_size)

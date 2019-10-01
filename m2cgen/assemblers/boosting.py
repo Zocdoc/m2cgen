@@ -188,11 +188,4 @@ def _split_trees_by_classes(trees, n_classes):
 def _create_categorical_expr(tree, feature_ref):
     # LightGBM threshold here is a double pipe deliminated string
     categories = [x for x in tree["threshold"].split('||')]
-    expr = None
-    for c in categories:
-        eq_cat = ast.CompExpr(feature_ref, ast.NumVal(c), ast.CompOpType.EQ)
-        if expr is None:
-            expr = eq_cat
-        else:
-            expr = ast.CompExpr(expr, eq_cat, ast.CompOpType.OR)
-    return expr
+    return ast.ContainsIntExpr(categories, feature_ref)
