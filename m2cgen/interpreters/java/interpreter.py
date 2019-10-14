@@ -52,7 +52,8 @@ class JavaInterpreter(ToCodeInterpreter,
             self.enqueue_subroutine("score", expr)
             self.process_subroutine_queue(top_cg)
 
-            top_cg.add_code_line("static HashSet<Integer> {};".format(','.join([name for name, _ in self.static_declarations])))
+            if self.static_declarations:
+                top_cg.add_code_line("static HashSet<Integer> {};".format(','.join([name for name, _ in self.static_declarations])))
 
             top_cg.add_code_line("static {")
             top_cg.increase_indent()
