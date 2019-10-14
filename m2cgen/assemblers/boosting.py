@@ -4,12 +4,13 @@ from m2cgen import ast
 from m2cgen.assemblers import utils
 from m2cgen.assemblers.base import ModelAssembler
 
+MAX_LEAVES_PER_SUBROUTINE = 2000
 
 class BaseBoostingAssembler(ModelAssembler):
 
     classifier_name = None
 
-    def __init__(self, model, trees, base_score=0, tree_limit=None):
+    def __init__(self, model, trees, total_num_leaves, base_score=0, tree_limit=None):
         super().__init__(model)
         self.all_trees = trees
         self._base_score = base_score
@@ -19,6 +20,7 @@ class BaseBoostingAssembler(ModelAssembler):
 
         assert tree_limit is None or tree_limit > 0, "Unexpected tree limit"
         self._tree_limit = tree_limit
+        self._total_num_leaves = total_num_leaves
 
         model_class_name = type(model).__name__
         if model_class_name == self.classifier_name:
@@ -41,10 +43,25 @@ class BaseBoostingAssembler(ModelAssembler):
             trees = trees[:self._tree_limit]
 
         trees_ast = [self._assemble_tree(t) for t in trees]
+        to_sum = trees_ast
+
+        # in a large tree we need to generate multiple subroutines to avoid
+        # java limitations https://github.com/BayesWitnesses/m2cgen/issues/103
+        if self._total_num_leaves > MAX_LEAVES_PER_SUBROUTINE:
+            trees_per_subroutine = int(np.ceil(MAX_LEAVES_PER_SUBROUTINE / (self._total_num_leaves / len(trees))))
+            to_sum = []
+
+            for i in range(0, len(trees_ast), trees_per_subroutine):
+                partial_result = utils.apply_op_to_expressions(
+                    ast.BinNumOpType.ADD,
+                    *trees_ast[i:i+trees_per_subroutine])
+                to_sum.append(ast.SubroutineExpr(partial_result))
+
         result_ast = utils.apply_op_to_expressions(
             ast.BinNumOpType.ADD,
             ast.NumVal(base_score),
-            *trees_ast)
+            *to_sum)
+
         return ast.SubroutineExpr(result_ast)
 
     def _assemble_multi_class_output(self, trees):
@@ -90,13 +107,15 @@ class XGBoostModelAssembler(BaseBoostingAssembler):
 
         model_dump = model.get_booster().get_dump(dump_format="json")
         trees = [json.loads(d) for d in model_dump]
+        total_num_leaves = self.count_leaves(trees)
 
         # Limit the number of trees that should be used for
         # assembling (if applicable).
         best_ntree_limit = getattr(model, "best_ntree_limit", None)
 
-        super().__init__(model, trees, base_score=model.base_score,
-                         tree_limit=best_ntree_limit)
+        super().__init__(model, trees, total_num_leaves, 
+            base_score=model.base_score,
+            tree_limit=best_ntree_limit)
 
     def _assemble_tree(self, tree):
         if "leaf" in tree:
@@ -130,6 +149,21 @@ class XGBoostModelAssembler(BaseBoostingAssembler):
                 return self._assemble_tree(child)
         assert False, "Unexpected child ID {}".format(child_id)
 
+    @staticmethod
+    def count_leaves(trees):
+        queue = trees.copy()
+        num_leaves = 0
+
+        while queue:
+            tree = queue.pop()
+            if "leaf" in tree:
+                num_leaves += 1
+            elif 'children' in tree:
+                for child in tree["children"]:
+                    queue.append(child)
+        return num_leaves
+
+
 
 class LightGBMModelAssembler(BaseBoostingAssembler):
 
@@ -138,8 +172,9 @@ class LightGBMModelAssembler(BaseBoostingAssembler):
     def __init__(self, model):
         model_dump = model.booster_.dump_model()
         trees = [m["tree_structure"] for m in model_dump["tree_info"]]
-
-        super().__init__(model, trees)
+        total_num_leaves = np.sum([t['num_leaves'] for t in model_dump['tree_info']])
+        
+        super().__init__(model, trees, total_num_leaves)
 
     def _assemble_tree(self, tree):
         if "leaf_value" in tree:
