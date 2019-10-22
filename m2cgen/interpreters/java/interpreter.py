@@ -41,8 +41,8 @@ class JavaInterpreter(ToCodeInterpreter,
         if self.package_name:
             top_cg.add_package_name(self.package_name)
 
-        top_cg.prepend_code_lines("import java.util.Arrays;")
-        top_cg.prepend_code_lines("import java.util.HashSet;")
+        top_cg.add_code_line("import java.util.Arrays;")
+        top_cg.add_code_line("import java.util.HashSet;")
 
         with top_cg.class_definition(self.class_name):
 
