@@ -42,7 +42,7 @@ class JavaInterpreter(ToCodeInterpreter,
             top_cg.add_package_name(self.package_name)
 
         top_cg.add_code_line("import java.util.Arrays;")
-        top_cg.add_code_line("import java.util.HashSet;")
+        top_cg.add_code_line("import java.util.BitSet;")
 
         with top_cg.class_definition(self.class_name):
 
@@ -53,7 +53,7 @@ class JavaInterpreter(ToCodeInterpreter,
             self.process_subroutine_queue(top_cg)
 
             if self.static_declarations:
-                top_cg.add_code_line("static HashSet<Integer> {};".format(','.join([name for name, _ in self.static_declarations])))
+                top_cg.add_code_line("static MinBitset {};".format(','.join([name for name, _ in self.static_declarations])))
 
             top_cg.add_code_line("static {")
             top_cg.increase_indent()
